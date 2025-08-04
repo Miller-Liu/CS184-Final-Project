@@ -7,3 +7,5 @@ out
 *.json
 Debug
 .cache
+.idea/
+
