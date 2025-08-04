@@ -17,6 +17,8 @@ namespace CGL {
 PathTracer::PathTracer() {
 	gridSampler = new UniformGridSampler2D();
 	hemisphereSampler = new UniformHemisphereSampler3D();
+	sphereSampler = new UniformSphereSampler3D();
+	interactionSampler = new InteractionSampler();
 
 	tm_gamma = 2.2f;
 	tm_level = 1.0f;
@@ -27,6 +29,8 @@ PathTracer::PathTracer() {
 PathTracer::~PathTracer() {
 	delete gridSampler;
 	delete hemisphereSampler;
+	delete sphereSampler;
+	delete interactionSampler;
 }
 
 void PathTracer::set_frame_size(size_t width, size_t height) {
@@ -146,6 +150,62 @@ PathTracer::estimate_direct_lighting_importance(const Ray &r, const Intersection
 	return L_out;
 }
 
+Vector3D PathTracer::estimate_sphere_ray_marching(const Ray &r, const Intersection &isect) {
+	// make a coordinate system for a hit point
+	// with N aligned with the Z direction.
+	Matrix3x3 o2w;
+	make_coord_space(o2w, isect.n);
+	Matrix3x3 w2o = o2w.T();
+
+	// w_out points towards the source of the ray (e.g.,
+	// toward the camera if this is a primary ray)
+	const Vector3D hit_p = r.o + r.d * isect.t;
+	const Vector3D w_out = w2o * (-r.d);
+
+	// variables controlling falloff
+	double k = 0.1;
+
+	// Number of total light samples
+	int num_samples = scene->lights.size() * ns_area_light;
+	Vector3D L_out;
+	for (int i = 0; i < num_samples; i++) {
+		// Random direction using hemisphereSampler in local coordinates
+		Vector3D w_in = sphereSampler->get_sample();
+		double pdf = 1 / (4.0 * PI);
+		double cos_theta = w_in.z;
+		Vector3D f = isect.bsdf->f(w_out, w_in);
+
+		// Determine the distance of
+		double s_pdf;
+		double s = interactionSampler->get_sample(k, &s_pdf);
+
+		///
+		/// create shadow ray
+		/// create bounced ray
+		/// return 0.1 * atleastonebounce(shadow) + 0.9 * atleastonebounce(bounced)
+		///
+
+		// Create the "shadow" ray
+		Ray shadow_ray(hit_p, o2w * w_in);
+		shadow_ray.min_t = EPS_F;
+
+		// If shadow ray hits an object, update light out with that object's emission
+		Intersection i_next;
+		if (cos_theta > 0 && bvh->intersect(shadow_ray, &i_next)) {
+			Vector3D L = i_next.bsdf->get_emission();
+			L_out += L * f * cos_theta / pdf;
+
+			const Vector3D next_hit_p = shadow_ray.o + shadow_ray.d * i_next.t;
+			if (s < (next_hit_p - hit_p).norm()) {
+				L_out *= 0.5;
+			}
+		}
+
+	}
+	L_out /= num_samples;
+	return L_out;
+}
+
 Vector3D PathTracer::zero_bounce_radiance(const Ray &r, const Intersection &isect) {
 	// TODO: Part 3, Task 2
 	// Returns the light that results from no bounces of light
@@ -157,6 +217,8 @@ Vector3D PathTracer::one_bounce_radiance(const Ray &r, const Intersection &isect
 	// TODO: Part 3, Task 3
 	// Returns either the direct illumination by hemisphere or importance sampling
 	// depending on `direct_hemisphere_sample`
+
+	return estimate_sphere_ray_marching(r, isect);
 
 	if (direct_hemisphere_sample) {
 		return estimate_direct_lighting_hemisphere(r, isect);

@@ -67,5 +67,20 @@ Vector3D CosineWeightedHemisphereSampler3D::get_sample(double *pdf) const {
   return Vector3D(r*cos(theta), r*sin(theta), sqrt(1-Xi1));
 }
 
+double InteractionSampler::get_sample(double k) const {
+  double f;
+  return get_sample(k, &f);
+}
+
+/**
+ * A Sampler3D implementation with cosine-weighted distribution on unit
+ * hemisphere. This functions also sets the pdf to the proper probability
+ */
+double InteractionSampler::get_sample(double k, double *pdf) const {
+  double s = random_uniform();
+  *pdf = k * exp(-k * s);
+  return 1 - exp(-k * s);
+}
+
 
 } // namespace CGL

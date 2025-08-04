@@ -1,5 +1,5 @@
 .DS_Store
-build
+build/
 exr
 out
 .vs
@@ -8,4 +8,3 @@ out
 Debug
 .cache
 .idea/
-
