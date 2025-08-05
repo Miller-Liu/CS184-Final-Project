@@ -76,11 +76,15 @@ double InteractionSampler::get_sample(double k) const {
  * A Sampler3D implementation with cosine-weighted distribution on unit
  * hemisphere. This functions also sets the pdf to the proper probability
  */
-double InteractionSampler::get_sample(double k, double *pdf) const {
-  double s = random_uniform();
-  *pdf = k * exp(-k * s);
-  return 1 - exp(-k * s);
-}
+double InteractionSampler::get_sample(double k, double* pdf) const {
+	double U = random_uniform();
+	double s = -log(1.0 - U) / k;
+	*pdf = k * exp(-k * s);
 
+
+	return s;
+
+
+}
 
 } // namespace CGL

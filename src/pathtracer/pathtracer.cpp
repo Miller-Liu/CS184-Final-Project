@@ -100,55 +100,9 @@ PathTracer::estimate_direct_lighting_hemisphere(const Ray &r, const Intersection
 	return L_out;
 }
 
-Vector3D
-PathTracer::estimate_direct_lighting_importance(const Ray &r, const Intersection &isect) {
-	// Estimate the lighting from this intersection coming directly from a light.
-	// To implement importance sampling, sample only from lights, not uniformly in
-	// a hemisphere.
 
-	// make a coordinate system for a hit point
-	// with N aligned with the Z direction.
-	Matrix3x3 o2w;
-	make_coord_space(o2w, isect.n);
-	Matrix3x3 w2o = o2w.T();
 
-	// w_out points towards the source of the ray (e.g.,
-	// toward the camera if this is a primary ray)
-	const Vector3D hit_p = r.o + r.d * isect.t;
-	const Vector3D w_out = w2o * (-r.d);
-	Vector3D L_out;
 
-	// TODO (Part 3): Write your sampling loop here
-	for (auto light = scene->lights.begin(); light != scene->lights.end(); light++) {
-		Vector3D w_in;
-		double distToLight;
-		double pdf;
-		Vector3D L_light;
-
-		// Only sample once for point light sources
-		int num_samples = (*light)->is_delta_light() ? 1 : ns_area_light;
-		for (int i = 0; i < num_samples; i++) {
-			// 
-			Vector3D L = (*light)->sample_L(hit_p, &w_in, &distToLight, &pdf);
-			double cos_theta = dot(w_in, isect.n);
-			Vector3D f = isect.bsdf->f(w_out, w2o * w_in);
-
-			// Create the "bounced" ray
-			Ray shadow_ray(hit_p, w_in);
-			shadow_ray.min_t = EPS_F;
-			shadow_ray.max_t = distToLight - EPS_F;
-			
-			// If shadow ray is not obstructed, update light out
-			Intersection i_next;
-			if (cos_theta > 0 && !bvh->intersect(shadow_ray, &i_next)) {
-				L_light += L * f * cos_theta / pdf;
-			}
-		}
-		L_out += L_light / num_samples;
-	}
-	
-	return L_out;
-}
 
 Vector3D PathTracer::estimate_sphere_ray_marching(const Ray &r, const Intersection &isect) {
 	// make a coordinate system for a hit point
@@ -235,7 +189,7 @@ Vector3D PathTracer::at_least_one_bounce_radiance(const Ray &r, const Intersecti
 	Vector3D hit_p = r.o + r.d * isect.t;
 	Vector3D w_out = w2o * (-r.d);
 
-	Vector3D L_out(0, 0, 0);
+	Vector3D L_out = Vector3D(0,0,0);
 
 	// TODO: Part 4, Task 2
 	// Returns the one bounce radiance + radiance from extra bounces at this point.
@@ -246,7 +200,7 @@ Vector3D PathTracer::at_least_one_bounce_radiance(const Ray &r, const Intersecti
 	// 
 	if ((isAccumBounces || r.depth == 1)) L_out += one_bounce_radiance(r, isect);
 
-	double prob = 0.65;
+	double prob = 1;
 	if (coin_flip(prob)) {
 		// 
 		Vector3D w_in;
@@ -262,7 +216,20 @@ Vector3D PathTracer::at_least_one_bounce_radiance(const Ray &r, const Intersecti
 		// 
 		Intersection i_next;
 		if (next_ray.depth > 0 && cos_theta > 0 && bvh->intersect(next_ray, &i_next)) {
-			L_out += at_least_one_bounce_radiance(next_ray, i_next) * f * cos_theta / pdf;
+			double T = 4;
+			double isect_distance = ((next_ray.o + i_next.t * next_ray.d) - next_ray.o).norm();
+			double extinct_dist = -(std::log10(1 - random_uniform())) / T;
+			if (isect_distance <= extinct_dist) {
+				L_out += at_least_one_bounce_radiance(next_ray, i_next) * f * cos_theta / pdf;
+			}
+			else {
+				//Intersection i_air = Intersection();
+				static CGL::DiffuseBSDF zero_bsdf(Vector3D(1, 1, 1));
+				i_next.bsdf = &zero_bsdf;
+				i_next.t = extinct_dist;
+				L_out = at_least_one_bounce_radiance(next_ray, i_next) * (1 / (4 *PI)) / pdf;
+			}
+			
 		}
 	}
 

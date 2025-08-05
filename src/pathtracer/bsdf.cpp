@@ -49,6 +49,7 @@ void make_coord_space(Matrix3x3 &o2w, const Vector3D n) {
  * \param wi incident light direction in local space of point of intersection
  * \return reflectance in the given incident/outgoing directions
  */
+
 Vector3D DiffuseBSDF::f(const Vector3D wo, const Vector3D wi) {
 	// TODO (Part 3.1):
 	// This function takes in both wo and wi and returns the evaluation of

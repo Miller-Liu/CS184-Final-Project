@@ -152,6 +152,8 @@ private:
 
 }; // class DiffuseBSDF
 
+
+
 /**
  * Microfacet BSDF.
  */
