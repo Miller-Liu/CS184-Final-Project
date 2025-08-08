@@ -1,0 +1,11 @@
+.DS_Store
+build
+exr
+out
+.vs
+.vscode
+*.json
+Debug
+.idea/
+.cache/
+cmake-build-debug/
